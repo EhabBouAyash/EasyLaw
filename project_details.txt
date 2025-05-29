@@ -1,0 +1,17 @@
+First we have to download the .idx files from https://www.sec.gov/Archives/edgar/daily-index/
+
+
+Things to add to the url: 
+
+
+1) year: 2010, 2011, 2012, ...
+2) Quarter: QTR1, QTR2
+
+
+In each .idx file we have text files that I can query as: https://www.sec.gov/Archives/ + the url extension mentioned for each row like "edgar/data/1084869/0001437749-24-000106.txt".
+
+Goal	Method
+Get all filings daily	Parse master.YYYYMMDD.idx files
+Filter by type	Look for 10-K, 8-K, S-1, EX-10, etc.
+Find NDAs & MSAs	Target Exhibit 10 filings
+Download + process files	Build batch jobs, respect rate limits
