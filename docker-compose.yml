@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  easylaw:
+    build: .
+    volumes:
+      - ./chroma_db:/app/chroma_db
+      - ./text_files:/app/text_files
+      - ./contracts:/app/contracts
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TESSDATA_PREFIX=/usr/share/tessdata
+      - GROQ_API_KEY=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
+    ports:
+      - "8000:8000"  # If you add a web interface later 
