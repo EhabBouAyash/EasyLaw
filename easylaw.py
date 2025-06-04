@@ -19,7 +19,12 @@ import csv
 from urllib.parse import urljoin
 from chromadb import Client
 from chromadb.config import Settings
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.responses import JSONResponse
+import uvicorn
+from typing import Optional
 
+app = FastAPI(title="EasyLaw API")
 
 def pdf_to_img(pdf_file):
     return pdf2image.convert_from_path(pdf_file)
@@ -99,7 +104,7 @@ def clear_chroma_db(vectorstore_path="chroma_db"):
     except Exception as e:
         print(f"Error clearing Chroma database: {e}")
 
-def rag_qa(text, query, force_new_db=False, firm_id=None):
+def rag_qa(text, query, force_new_db=False, firm_id="default_id"):
     """
     Perform RAG over the OCR text using llama3.1 8b instant, with a firm-specific Chroma collection.
     """
@@ -130,7 +135,7 @@ def rag_qa(text, query, force_new_db=False, firm_id=None):
     client = Client(Settings(
         persist_directory=vectorstore_path
     ))
-    collection_name = f"Firm ID: {firm_id}"
+    collection_name = f"firm_{firm_id}"
 
     # Optionally clear the collection if force_new_db
     if force_new_db and collection_name in [c.name for c in client.list_collections()]:
@@ -380,62 +385,44 @@ def identify_form_type(text):
             "reason": "Failed to parse LLM response as JSON"
         }
 
-# Example usage:
+@app.post("/analyze-contract")
+async def analyze_contract(
+    file: UploadFile = File(...),
+    query: Optional[str] = None,
+    firm_id: Optional[str] = "default_id"
+):
+    try:
+        # Save uploaded file temporarily
+        temp_path = f"temp_{file.filename}"
+        with open(temp_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+        
+        # Process the PDF
+        text = print_pages(temp_path)
+        
+        # Clean up temporary file
+        os.remove(temp_path)
+        
+        if query:
+            # Perform RAG analysis if query is provided
+            result = rag_qa(text, query, firm_id=firm_id)
+        else:
+            # Perform basic analysis if no query
+            result = simple_llm_call("Analyze this contract and provide a summary of key points:", text)
+        
+        return JSONResponse(content={"analysis": result})
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
 if __name__ == "__main__":
-    # First collect contracts
-    #collect_contracts_from_edgar()
-    
-    
-    # Process a single .idx file
-    #idx_file = "/Users/ehab/work/solo_projects/contracts/company.20230103.idx"  # or any other .idx file
-    #downloaded_files = extract_and_download_text_files(idx_file)
-    #print(f"\nDownloaded {len(downloaded_files)} text files:")
-    #for file in downloaded_files:
-    #    print(f"  {file}")
-
-    #differnet prompts for each document type
-    general_prompt = """Give the following XML, return it to normal text in a neat format. 
-    If the text contains something that looks like gibberish, ignore it. 
-     List out the form type in the beginning of your response, and then summarize the proceedings, and list out all parties mentioned along with their positions in this case.
-    """
-
-    nda_prompt = """
-    Extract all key terms of this NDA, including parties involved, definition of confidential information, 
-    duration of the agreement, obligations of each party, exclusions, and governing law.
-    Organize these in bullet points and return them in your response. 
-    """
-
-    msa_prompt = """
-    Summarize key provisions in this Master Service Agreement including parties, 
-    payment terms, liability caps, dispute resolution mechanism, and intellectual property clauses.
-    Organize these in bullet points and return them in your response. 
-    """
-
-    employment_agreement_prompt = """
-    Summarize key terms in this employment agreement including parties, 
-    duration 
-    """
-    directory = "/Users/ehab/work/solo_projects/text_files"  # Replace with the actual path
-
-    for filename in os.listdir(directory):
-        f = os.path.join(directory, filename)
-        if os.path.isfile(f):
-            print(f"File: {filename}")
-            with open(f, "r", encoding="utf-8") as file:
-                text = file.read()
-    
-    # First identify the form type
-            form_type = identify_form_type(text)
-            print("\nForm Type Analysis:")
-            print(json.dumps(form_type, indent=2))
-    
-    # Then proceed with the appropriate analysis
-            ans = ""
-            if len(text) > 6000:
-                print(len(text))
-                ans = rag_qa(text, general_prompt, force_new_db=True)
-            else:
-                print(len(text))
-                ans = simple_llm_call(general_prompt, text)
-            print(ans)
+    # Get port from environment variable (Cloud Run sets this)
+    port = int(os.getenv("PORT", 8080))
+    # Run the FastAPI server
+    uvicorn.run(app, host="0.0.0.0", port=port)
 
