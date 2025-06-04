@@ -26,6 +26,52 @@ from typing import Optional
 
 app = FastAPI(title="EasyLaw API")
 
+
+
+class ContractAnalyzer:
+    def __init__(self, api_url, firm_id):
+        self.api_url = api_url
+        self.firm_id = firm_id
+        
+    def analyze_single_contract(self, pdf_path, query=None):
+        """Analyze a single contract"""
+        try:
+            with open(pdf_path, 'rb') as f:
+                files = {'file': f}
+                data = {'firm_id': self.firm_id}
+                if query:
+                    data['query'] = query
+                    
+                response = requests.post(
+                    f"{self.api_url}/analyze-contract",
+                    files=files,
+                    data=data
+                )
+                response.raise_for_status()
+                return response.json()
+        except Exception as e:
+            print(f"Error analyzing contract {pdf_path}: {str(e)}")
+            return None
+            
+    def batch_analyze_contracts(self, folder_path, query=None):
+        """Analyze all PDFs in a folder"""
+        results = []
+        for filename in os.listdir(folder_path):
+            if filename.endswith('.pdf'):
+                pdf_path = os.path.join(folder_path, filename)
+                result = self.analyze_single_contract(pdf_path, query)
+                if result:
+                    results.append({
+                        'filename': filename,
+                        'analysis': result,
+                        'timestamp': datetime.now().isoformat()
+                    })
+        return results
+
+
+
+
+
 def pdf_to_img(pdf_file):
     return pdf2image.convert_from_path(pdf_file)
 
@@ -419,6 +465,7 @@ async def analyze_contract(
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
 
 if __name__ == "__main__":
     # Get port from environment variable (Cloud Run sets this)
