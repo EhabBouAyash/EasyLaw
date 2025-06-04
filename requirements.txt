@@ -9,4 +9,5 @@ requests==2.31.0
 fastapi==0.109.2
 uvicorn==0.27.1
 python-multipart==0.0.9
-ollama==0.1.6 
+ollama==0.1.6
+gradio==4.19.2 
