@@ -4,10 +4,12 @@ import os
 from groq import Groq
 import pypdfium2 as pdfium
 import io
-os.environ['TESSDATA_PREFIX'] = '/opt/homebrew/share/tessdata'
-api_key = "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"
-os.environ["GROQ_API_KEY"] = api_key
-from langchain.embeddings import SentenceTransformerEmbeddings
+from dotenv import load_dotenv
+load_dotenv()
+os.environ['TESSDATA_PREFIX'] = '/usr/share/tessdata'
+api_key = os.getenv("GROQ_API_KEY")
+
+from langchain_community.embeddings import SentenceTransformerEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from chromadb import Client
 from chromadb.config import Settings
@@ -15,7 +17,6 @@ from fastapi import FastAPI
 import uvicorn
 import gradio as gr
 import tempfile
-
 # Initialize Groq client
 groq_client = Groq(api_key=api_key)
 
@@ -71,8 +72,6 @@ def extract_text_from_file(file_path):
 
 def simple_llm_call(prompt, text):
     """Call llama3.1 8b instant for small texts"""
-    if not api_key:
-        raise ValueError("Please set the GROQ_API_KEY environment variable")
     
     ans = groq_client.chat.completions.create(
         messages=[
@@ -156,8 +155,6 @@ Text:
 Please provide a clear and concise response focusing on the key information relevant to the query."""
 
     # Call Groq LLM
-    if not api_key:
-        raise ValueError("Please set the GROQ_API_KEY environment variable")
     
     ans = groq_client.chat.completions.create(
         messages=[
