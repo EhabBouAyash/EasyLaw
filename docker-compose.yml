@@ -1,15 +1,40 @@
 version: '3.8'
 
 services:
-  easylaw:
+  easylaw-streamlit:
     build: .
+    ports:
+      - "8501:8501"
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - TESSDATA_PREFIX=/usr/share/tessdata
+      - PYTHONUNBUFFERED=1
     volumes:
       - ./chroma_db:/app/chroma_db
-      - ./text_files:/app/text_files
-      - ./contracts:/app/contracts
-    environment:
-      - PYTHONUNBUFFERED=1
-      - TESSDATA_PREFIX=/usr/share/tessdata
-      - GROQ_API_KEY=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
+    networks:
+      - easylaw-network
+    depends_on:
+      - ollama
+
+  ollama:
+    image: ollama/ollama:latest
     ports:
-      - "8000:8000"  # If you add a web interface later 
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - easylaw-network
+    command: >
+      sh -c "
+        ollama serve &
+        sleep 10 &&
+        ollama pull gemma3:12b &&
+        wait
+      "
+
+volumes:
+  ollama_data:
+
+networks:
+  easylaw-network:
+    driver: bridge 
