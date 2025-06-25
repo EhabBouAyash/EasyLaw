@@ -1,47 +1,45 @@
-# Use Python 3.11 as base image for better compatibility
+# Use Python 3.11 slim image as base
 FROM python:3.11-slim
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV TESSDATA_PREFIX=/usr/share/tessdata
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies including Tesseract OCR and other required packages
+# Install system dependencies including Tesseract OCR and ML dependencies
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
-    libtesseract-dev \
-    libleptonica-dev \
-    pkg-config \
-    curl \
+    tesseract-ocr-eng \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
     wget \
+    gcc \
+    g++ \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first to leverage Docker cache
+# Copy requirements file
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application
-COPY . .
+# Copy the main application file
+COPY easylaw_streamlit.py .
 
-# Create directory for Chroma DB
+# Create directory for ChromaDB persistence
 RUN mkdir -p chroma_db
 
-# Set environment variables
-ENV TESSDATA_PREFIX=/usr/share/tessdata
-ENV PYTHONUNBUFFERED=1
-ENV STREAMLIT_SERVER_PORT=8501
-ENV STREAMLIT_SERVER_ADDRESS=0.0.0.0
-
-# Expose the port Streamlit runs on
+# Expose port for Streamlit
 EXPOSE 8501
 
-# Create a shell script to run the Streamlit application
-RUN echo '#!/bin/sh\n\
-if [ -z "$GROQ_API_KEY" ]; then\n\
-    echo "Warning: GROQ_API_KEY environment variable is not set"\n\
-fi\n\
-echo "Starting Streamlit application..."\n\
-streamlit run easylaw_streamlit.py --server.port=8501 --server.address=0.0.0.0' > /app/start.sh && chmod +x /app/start.sh
-
-# Command to run the Streamlit application
-CMD ["/app/start.sh"] 
+# Set the default command to run Streamlit
+CMD ["streamlit", "run", "easylaw_streamlit.py", "--server.port=8501", "--server.address=0.0.0.0"] 

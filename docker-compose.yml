@@ -1,40 +1,18 @@
-version: '3.8'
-
 services:
-  easylaw-streamlit:
+  easylaw:
     build: .
     ports:
       - "8501:8501"
     environment:
-      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY:-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}
       - TESSDATA_PREFIX=/usr/share/tessdata
-      - PYTHONUNBUFFERED=1
     volumes:
       - ./chroma_db:/app/chroma_db
-    networks:
-      - easylaw-network
-    depends_on:
-      - ollama
-
-  ollama:
-    image: ollama/ollama:latest
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    networks:
-      - easylaw-network
-    command: >
-      sh -c "
-        ollama serve &
-        sleep 10 &&
-        ollama pull gemma3:12b &&
-        wait
-      "
-
-volumes:
-  ollama_data:
-
-networks:
-  easylaw-network:
-    driver: bridge 
+      - ./uploads:/app/uploads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8501/_stcore/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s 
